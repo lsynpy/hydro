@@ -1,8 +1,22 @@
 status is-interactive || exit
 
+# Set default values for all color variables first
+set --query hydro_color_pwd || set --global hydro_color_pwd $fish_color_normal
+set --query hydro_color_git || set --global hydro_color_git $fish_color_normal
+set --query hydro_color_error || set --global hydro_color_error $fish_color_error
+set --query hydro_color_prompt || set --global hydro_color_prompt $fish_color_normal
+set --query hydro_color_duration || set --global hydro_color_duration $fish_color_normal
+set --query hydro_color_start || set --global hydro_color_start $fish_color_normal
+set --query hydro_color_pyenv || set --global hydro_color_pyenv $fish_color_normal
+
 set --global _hydro_git _hydro_git_$fish_pid
+set --global _hydro_pyenv _hydro_pyenv_$fish_pid
 
 function $_hydro_git --on-variable $_hydro_git
+    commandline --function repaint
+end
+
+function $_hydro_pyenv --on-variable $_hydro_pyenv
     commandline --function repaint
 end
 
@@ -100,6 +114,18 @@ function _hydro_prompt --on-event fish_prompt
     " &
 
     set --global _hydro_last_pid $last_pid
+
+    # Async pyenv version detection
+    command kill $_hydro_pyenv_last_pid 2>/dev/null
+    fish --private --command "
+        set pyenv_version (command pyenv version 2>/dev/null | string replace --regex -- ' .*' '')
+        if test -n \"\$pyenv_version\" && test \"\$pyenv_version\" != \"system\"
+            set --universal $_hydro_pyenv \"🐍 \$pyenv_version \"
+        else
+            set --universal $_hydro_pyenv \"\"
+        end
+    " &
+    set --global _hydro_pyenv_last_pid $last_pid
 end
 
 function _hydro_fish_exit --on-event fish_exit
@@ -115,10 +141,10 @@ end
 
 set --global hydro_color_normal (set_color normal)
 
-for color in hydro_color_{pwd,git,error,prompt,duration,start}
+for color in hydro_color_{pwd,git,error,prompt,duration,start,pyenv}
     function $color --on-variable $color --inherit-variable color
-        set --query $color && set --global _$color (set_color $$color)
-    end && $color
+        set --query $color && set --global _$color (set_color $color)
+    end
 end
 
 function hydro_multiline --on-variable hydro_multiline
@@ -129,7 +155,6 @@ function hydro_multiline --on-variable hydro_multiline
     end
 end && hydro_multiline
 
-set --query hydro_color_error || set --global hydro_color_error $fish_color_error
 set --query hydro_symbol_prompt || set --global hydro_symbol_prompt ❱
 set --query hydro_symbol_git_dirty || set --global hydro_symbol_git_dirty •
 set --query hydro_symbol_git_ahead || set --global hydro_symbol_git_ahead ↑
