@@ -120,7 +120,7 @@ function _hydro_prompt --on-event fish_prompt
     fish --private --command "
         set pyenv_version (command pyenv version 2>/dev/null | string replace --regex -- ' .*' '')
         if test -n \"\$pyenv_version\" && test \"\$pyenv_version\" != \"system\"
-            set --universal $_hydro_pyenv \"🐍 \$pyenv_version \"
+            set --universal $_hydro_pyenv \"(🐍 - \$pyenv_version)\"
         else
             set --universal $_hydro_pyenv \"\"
         end
@@ -143,8 +143,8 @@ set --global hydro_color_normal (set_color normal)
 
 for color in hydro_color_{pwd,git,error,prompt,duration,start,pyenv}
     function $color --on-variable $color --inherit-variable color
-        set --query $color && set --global _$color (set_color $color)
-    end
+        set --query $color && set --global _$color (set_color $$color)
+    end && $color
 end
 
 function hydro_multiline --on-variable hydro_multiline
