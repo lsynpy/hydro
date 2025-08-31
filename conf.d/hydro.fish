@@ -71,10 +71,7 @@ function _hydro_postexec --on-event fish_postexec
     set --global _hydro_cmd_duration "$out "
 end
 
-function _hydro_prompt --on-event fish_prompt
-    set --query _hydro_status || set --global _hydro_status "$_hydro_newline$_hydro_color_prompt$hydro_symbol_prompt"
-    set --query _hydro_pwd || _hydro_pwd
-
+function __hydro_prompt_git
     command kill $_hydro_last_pid 2>/dev/null
 
     set --query _hydro_skip_git_prompt && set $_hydro_git && return
@@ -114,7 +111,9 @@ function _hydro_prompt --on-event fish_prompt
     " &
 
     set --global _hydro_last_pid $last_pid
+end
 
+function __hydro_prompt_pyenv
     # Async pyenv version detection
     command kill $_hydro_pyenv_last_pid 2>/dev/null
     fish --private --command "
@@ -127,6 +126,14 @@ function _hydro_prompt --on-event fish_prompt
         end
     " &
     set --global _hydro_pyenv_last_pid $last_pid
+end
+
+function _hydro_prompt --on-event fish_prompt
+    set --query _hydro_status || set --global _hydro_status "$_hydro_newline$_hydro_color_prompt$hydro_symbol_prompt"
+    set --query _hydro_pwd || _hydro_pwd
+
+    __hydro_prompt_git
+    __hydro_prompt_pyenv
 end
 
 function _hydro_fish_exit --on-event fish_exit
