@@ -57,10 +57,37 @@ end
 function _hydro_conda_auto --on-variable PWD
     status is-interactive; or return
 
+    set -l current_dir $PWD
+    set -l home_dir $HOME
     set -l python_version_file ".python-version"
-    if test -f $python_version_file
-        set -l req_env (string trim < $python_version_file | head -n1)
-        hydro_log "[DEBUG] Detected .python-version: '$req_env'"
+    set -l found_version_file ""
+
+    hydro_log "[DEBUG] Starting search for .python-version from '$current_dir' up to '$home_dir'"
+
+    # Search for .python-version file from current directory up to home directory
+    while true
+        hydro_log "[DEBUG] Checking directory: '$current_dir' for .python-version file"
+
+        if test -f "$current_dir/$python_version_file"
+            set found_version_file "$current_dir/$python_version_file"
+            hydro_log "[DEBUG] Found .python-version file: '$found_version_file'"
+            break
+        end
+
+        # If we've reached the home directory or root, stop searching
+        if test "$current_dir" = "$home_dir" -o "$current_dir" = "/"
+            hydro_log "[DEBUG] Reached home directory or root, stopping search"
+            break
+        end
+
+        # Move up one directory
+        set current_dir (dirname "$current_dir")
+        hydro_log "[DEBUG] Moving up to parent directory: '$current_dir'"
+    end
+
+    if test -n "$found_version_file"
+        set -l req_env (string trim < "$found_version_file" | head -n1)
+        hydro_log "[DEBUG] Using .python-version from '$found_version_file': '$req_env'"
 
         if string match -q "*/*" -- $req_env
             hydro_log "[DEBUG] Path contains '/', treating as conda env"
