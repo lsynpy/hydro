@@ -120,6 +120,12 @@ function _hydro_conda_auto --on-variable PWD
     end
 end
 
+function _hydro_conda_bootstrap --on-event fish_prompt
+    hydro_log "[DEBUG] Running _hydro_conda_bootstrap"
+    _hydro_conda_auto
+    functions --erase _hydro_conda_bootstrap
+end
+
 function _hydro_postexec --on-event fish_postexec
     set --local last_status $pipestatus
     set --global _hydro_status "$_hydro_newline$_hydro_color_prompt$hydro_symbol_prompt"
