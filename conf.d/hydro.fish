@@ -1,5 +1,14 @@
 status is-interactive || exit
 
+# Logging function that only prints when debug is enabled
+function hydro_log --description "Simple logging function with debug level control"
+    set --query hydro_log_level || set --global hydro_log_level "info"
+    
+    if test "$hydro_log_level" = "debug"
+        echo $argv
+    end
+end
+
 # Set default values for all color variables first
 set --query hydro_color_pwd || set --global hydro_color_pwd $fish_color_normal
 set --query hydro_color_git || set --global hydro_color_git $fish_color_normal
@@ -51,26 +60,26 @@ function _hydro_conda_auto --on-variable PWD
     set -l python_version_file ".python-version"
     if test -f $python_version_file
         set -l req_env (string trim < $python_version_file | head -n1)
-        echo >&2 "[DEBUG] Detected .python-version: '$req_env'"
+        hydro_log "[DEBUG] Detected .python-version: '$req_env'"
 
         if string match -q "*/*" -- $req_env
-            echo >&2 "[DEBUG] Path contains '/', treating as conda env"
+            hydro_log "[DEBUG] Path contains '/', treating as conda env"
             set -l env_name (string split '/' $req_env)[-1]
-            echo >&2 "[DEBUG] Extracted env name: '$env_name'"
-            echo >&2 "[DEBUG] Current CONDA_DEFAULT_ENV: '$CONDA_DEFAULT_ENV'"
+            hydro_log "[DEBUG] Extracted env name: '$env_name'"
+            hydro_log "[DEBUG] Current CONDA_DEFAULT_ENV: '$CONDA_DEFAULT_ENV'"
 
             if test "$CONDA_DEFAULT_ENV" != "$env_name" -a "$CONDA_DEFAULT_ENV" != "$req_env"
-                echo >&2 "[DEBUG] Activating conda env by name: '$env_name'"
+                hydro_log "[DEBUG] Activating conda env by name: '$env_name'"
                 conda activate $env_name 2>/dev/null | source
-                echo >&2 "[DEBUG] After activation, CONDA_DEFAULT_ENV: '$CONDA_DEFAULT_ENV'"
+                hydro_log "[DEBUG] After activation, CONDA_DEFAULT_ENV: '$CONDA_DEFAULT_ENV'"
             else
-                echo >&2 "[DEBUG] Already activated, skipping"
+                hydro_log "[DEBUG] Already activated, skipping"
             end
         else
-            echo >&2 "[DEBUG] No '/' found, assuming regular pyenv env"
+            hydro_log "[DEBUG] No '/' found, assuming regular pyenv env"
         end
     else
-        echo >&2 "[DEBUG] No .python-version file"
+        hydro_log "[DEBUG] No .python-version file"
     end
 end
 
