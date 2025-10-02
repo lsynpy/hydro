@@ -45,6 +45,35 @@ function _hydro_pwd --on-variable PWD --on-variable hydro_ignored_git_paths --on
     )
 end
 
+function _hydro_conda_auto --on-variable PWD
+    status is-interactive; or return
+
+    set -l python_version_file ".python-version"
+    if test -f $python_version_file
+        set -l req_env (string trim < $python_version_file | head -n1)
+        echo >&2 "[DEBUG] Detected .python-version: '$req_env'"
+
+        if string match -q "*/*" -- $req_env
+            echo >&2 "[DEBUG] Path contains '/', treating as conda env"
+            set -l env_name (string split '/' $req_env)[-1]
+            echo >&2 "[DEBUG] Extracted env name: '$env_name'"
+            echo >&2 "[DEBUG] Current CONDA_DEFAULT_ENV: '$CONDA_DEFAULT_ENV'"
+
+            if test "$CONDA_DEFAULT_ENV" != "$env_name" -a "$CONDA_DEFAULT_ENV" != "$req_env"
+                echo >&2 "[DEBUG] Activating conda env by name: '$env_name'"
+                conda activate $env_name 2>/dev/null | source
+                echo >&2 "[DEBUG] After activation, CONDA_DEFAULT_ENV: '$CONDA_DEFAULT_ENV'"
+            else
+                echo >&2 "[DEBUG] Already activated, skipping"
+            end
+        else
+            echo >&2 "[DEBUG] No '/' found, assuming regular pyenv env"
+        end
+    else
+        echo >&2 "[DEBUG] No .python-version file"
+    end
+end
+
 function _hydro_postexec --on-event fish_postexec
     set --local last_status $pipestatus
     set --global _hydro_status "$_hydro_newline$_hydro_color_prompt$hydro_symbol_prompt"
