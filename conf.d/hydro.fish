@@ -3,7 +3,7 @@ status is-interactive || exit
 # Logging function that only prints when debug is enabled
 function hydro_log --description "Simple logging function with debug level control"
     set --query hydro_log_level || set --global hydro_log_level "info"
-    
+
     if test "$hydro_log_level" = "debug"
         echo $argv
     end
@@ -77,9 +77,19 @@ function _hydro_conda_auto --on-variable PWD
             end
         else
             hydro_log "[DEBUG] No '/' found, assuming regular pyenv env"
+            # Switch to the specific pyenv version from the file
+            if pyenv version | string match -q "$req_env"
+                hydro_log "[DEBUG] Already using pyenv version: '$req_env', skipping"
+            else
+                hydro_log "[DEBUG] Switching to pyenv version: '$req_env'"
+                pyenv local $req_env
+                hydro_log "[DEBUG] Switched to pyenv version: '$(pyenv version)'"
+            end
         end
     else
-        hydro_log "[DEBUG] No .python-version file"
+        hydro_log "[DEBUG] No .python-version file, switching to pyenv default"
+        conda deactivate
+        hydro_log "[DEBUG] Set to pyenv default version: '$(pyenv version)'"
     end
 end
 
