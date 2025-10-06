@@ -57,6 +57,12 @@ end
 function __hydro_prompt_conda
     status is-interactive; or return
 
+    # Check if conda exists before proceeding
+    if not command -v conda > /dev/null 2>&1
+        hydro_log "[DEBUG] conda command not found, skipping conda prompt setup"
+        return
+    end
+
     set -l current_dir $PWD
     set -l home_dir $HOME
     set -l python_version_file ".python-version"
@@ -85,30 +91,37 @@ function __hydro_prompt_conda
         hydro_log "[DEBUG] Moving up to parent directory: '$current_dir'"
     end
 
-    if test -n "$found_version_file"
-        set -l req_env (string trim < "$found_version_file" | head -n1)
-        hydro_log "[DEBUG] Using .python-version from '$found_version_file': '$req_env'"
+    # If no .python-version file found, deactivate conda and return
+    if test -z "$found_version_file"
+        hydro_log "[DEBUG] No .python-version file, deactivating conda"
+        conda deactivate 2>/dev/null
+        return
+    end
 
-        if string match -q "*/*" -- $req_env
-            hydro_log "[DEBUG] Path contains '/', treating as conda env"
-            set -l env_name (string split '/' $req_env)[-1]
-            hydro_log "[DEBUG] Extracted env name: '$env_name'"
-            hydro_log "[DEBUG] Current CONDA_DEFAULT_ENV: '$CONDA_DEFAULT_ENV'"
+    # Extract environment name from the file
+    set -l req_env (string trim < "$found_version_file" | head -n1)
+    hydro_log "[DEBUG] Using .python-version from '$found_version_file': '$req_env'"
 
-            if test "$CONDA_DEFAULT_ENV" != "$env_name" -a "$CONDA_DEFAULT_ENV" != "$req_env"
-                hydro_log "[DEBUG] Activating conda env by name: '$env_name'"
-                conda activate $env_name 2>/dev/null | source
-                hydro_log "[DEBUG] After activation, CONDA_DEFAULT_ENV: '$CONDA_DEFAULT_ENV'"
-            else
-                hydro_log "[DEBUG] Already activated, skipping"
-            end
-        else
-            hydro_log "[DEBUG] No '/' found, assuming regular env"
-            conda deactivate
-        end
+    # If environment name doesn't contain '/', deactivate conda and return
+    if not string match -q "*/*" -- $req_env
+        hydro_log "[DEBUG] No '/' found, deactivating conda"
+        conda deactivate 2>/dev/null
+        return
+    end
+
+    # Environment name contains '/', treat as conda env
+    hydro_log "[DEBUG] Path contains '/', treating as conda env"
+    set -l env_name (string split '/' $req_env)[-1]
+    hydro_log "[DEBUG] Extracted env name: '$env_name'"
+    hydro_log "[DEBUG] Current CONDA_DEFAULT_ENV: '$CONDA_DEFAULT_ENV'"
+
+    # Activate if different from current environment
+    if test "$CONDA_DEFAULT_ENV" != "$env_name" -a "$CONDA_DEFAULT_ENV" != "$req_env"
+        hydro_log "[DEBUG] Activating conda env by name: '$env_name'"
+        conda activate $env_name 2>/dev/null
+        hydro_log "[DEBUG] After activation, CONDA_DEFAULT_ENV: '$CONDA_DEFAULT_ENV'"
     else
-        hydro_log "[DEBUG] No .python-version file"
-        conda deactivate
+        hydro_log "[DEBUG] Already activated, skipping"
     end
 end
 
