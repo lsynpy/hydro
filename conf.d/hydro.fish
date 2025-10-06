@@ -54,7 +54,7 @@ function _hydro_pwd --on-variable PWD --on-variable hydro_ignored_git_paths --on
     )
 end
 
-function _hydro_conda_auto --on-variable PWD
+function __hydro_prompt_conda
     status is-interactive; or return
 
     set -l current_dir $PWD
@@ -103,27 +103,13 @@ function _hydro_conda_auto --on-variable PWD
                 hydro_log "[DEBUG] Already activated, skipping"
             end
         else
-            hydro_log "[DEBUG] No '/' found, assuming regular pyenv env"
-            # Switch to the specific pyenv version from the file
-            if pyenv version | string match -q "$req_env"
-                hydro_log "[DEBUG] Already using pyenv version: '$req_env', skipping"
-            else
-                hydro_log "[DEBUG] Switching to pyenv version: '$req_env'"
-                pyenv local $req_env
-                hydro_log "[DEBUG] Switched to pyenv version: '$(pyenv version)'"
-            end
+            hydro_log "[DEBUG] No '/' found, assuming regular env"
+            conda deactivate
         end
     else
-        hydro_log "[DEBUG] No .python-version file, switching to pyenv default"
+        hydro_log "[DEBUG] No .python-version file"
         conda deactivate
-        hydro_log "[DEBUG] Set to pyenv default version: '$(pyenv version)'"
     end
-end
-
-function _hydro_conda_bootstrap --on-event fish_prompt
-    hydro_log "[DEBUG] Running _hydro_conda_bootstrap"
-    _hydro_conda_auto
-    functions --erase _hydro_conda_bootstrap
 end
 
 function _hydro_postexec --on-event fish_postexec
@@ -215,6 +201,7 @@ function _hydro_prompt --on-event fish_prompt
 
     __hydro_prompt_git
     __hydro_prompt_pyenv
+    __hydro_prompt_conda
 end
 
 function _hydro_fish_exit --on-event fish_exit
