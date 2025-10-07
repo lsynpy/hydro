@@ -197,9 +197,10 @@ function __hydro_prompt_pyenv
     # Async pyenv version detection
     command kill $_hydro_pyenv_last_pid 2>/dev/null
     fish --private --command "
-        set pyenv_version (command pyenv version 2>/dev/null | string replace --regex -- ' .*' '')
-        set python_version (python3 --version 2>/dev/null | string split ' ' --fields 2)
+        set pyenv_version (command pyenv version --bare 2>/dev/null)
         if test -n \"\$pyenv_version\" && test \"\$pyenv_version\" != \"system\"
+            set prefix (command pyenv prefix \$pyenv_version 2>/dev/null)
+            set python_version (string split ' ' --field 2 -- (\$prefix/bin/python --version 2>/dev/null))
             set --universal $_hydro_pyenv \"(🐍 - \$pyenv_version - \$python_version)\"
         else
             set --universal $_hydro_pyenv \"\"
