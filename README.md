@@ -5,7 +5,7 @@
 Install with [Fisher](https://github.com/jorgebucaran/fisher):
 
 ```console
-fisher install jorgebucaran/hydro
+fisher install lsynpy/hydro
 ```
 
 ## Configuration
