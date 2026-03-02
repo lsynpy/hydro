@@ -54,76 +54,6 @@ function _hydro_pwd --on-variable PWD --on-variable hydro_ignored_git_paths --on
     )
 end
 
-function __hydro_prompt_conda
-    status is-interactive; or return
-
-    # Check if conda exists before proceeding
-    if not command -v conda > /dev/null 2>&1
-        hydro_log "[DEBUG] conda command not found, skipping conda prompt setup"
-        return
-    end
-
-    set -l current_dir $PWD
-    set -l home_dir $HOME
-    set -l python_version_file ".python-version"
-    set -l found_version_file ""
-
-    hydro_log "[DEBUG] Starting search for .python-version from '$current_dir' up to '$home_dir'"
-
-    # Search for .python-version file from current directory up to home directory
-    while true
-        hydro_log "[DEBUG] Checking directory: '$current_dir' for .python-version file"
-
-        if test -f "$current_dir/$python_version_file"
-            set found_version_file "$current_dir/$python_version_file"
-            hydro_log "[DEBUG] Found .python-version file: '$found_version_file'"
-            break
-        end
-
-        # If we've reached the home directory or root, stop searching
-        if test "$current_dir" = "$home_dir" -o "$current_dir" = "/"
-            hydro_log "[DEBUG] Reached home directory or root, stopping search"
-            break
-        end
-
-        # Move up one directory
-        set current_dir (dirname "$current_dir")
-        hydro_log "[DEBUG] Moving up to parent directory: '$current_dir'"
-    end
-
-    # If no .python-version file found, deactivate conda and return
-    if test -z "$found_version_file"
-        hydro_log "[DEBUG] No .python-version file, deactivating conda"
-        conda deactivate 2>/dev/null
-        return
-    end
-
-    # Extract environment name from the file
-    set -l req_env (string trim < "$found_version_file" | head -n1)
-    hydro_log "[DEBUG] Using .python-version from '$found_version_file': '$req_env'"
-
-    # If environment name doesn't contain '/', deactivate conda and return
-    if not string match -q "*/*" -- $req_env
-        hydro_log "[DEBUG] No '/' found, deactivating conda"
-        conda deactivate 2>/dev/null
-        return
-    end
-
-    # Environment name contains '/', treat as conda env
-    hydro_log "[DEBUG] Path contains '/', treating as conda env"
-    set -l env_name (string split '/' $req_env)[-1]
-    hydro_log "[DEBUG] Extracted env name: '$env_name'"
-    hydro_log "[DEBUG] Current CONDA_DEFAULT_ENV: '$CONDA_DEFAULT_ENV'"
-
-    # Activate if different from current environment
-    if test "$CONDA_DEFAULT_ENV" != "$env_name" -a "$CONDA_DEFAULT_ENV" != "$req_env"
-        hydro_log "[DEBUG] Activating conda env by name: '$env_name'"
-        conda activate $env_name 2>/dev/null
-        hydro_log "[DEBUG] After activation, CONDA_DEFAULT_ENV: '$CONDA_DEFAULT_ENV'"
-    else
-        hydro_log "[DEBUG] Already activated, skipping"
-    end
-end
 
 function _hydro_postexec --on-event fish_postexec
     set --local last_status $pipestatus
@@ -240,7 +170,6 @@ function _hydro_prompt --on-event fish_prompt
 
     __hydro_prompt_git
     __hydro_prompt_pyenv
-    __hydro_prompt_conda
 end
 
 function _hydro_fish_exit --on-event fish_exit
