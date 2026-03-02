@@ -2,7 +2,7 @@ status is-interactive || exit
 
 # Logging function that only prints when debug is enabled
 function hydro_log --description "Simple logging function with debug level control"
-    set --query hydro_log_level || set --global hydro_log_level "info"
+    set --query hydro_log_level || set --universal hydro_log_level "info"
 
     if test "$hydro_log_level" = "debug"
         echo $argv >&2
@@ -82,6 +82,7 @@ function _hydro_postexec --on-event fish_postexec
 end
 
 function __hydro_prompt_git
+    hydro_log "[__hydro_prompt_git] prompt git"
     command kill $_hydro_last_pid 2>/dev/null
 
     set --query _hydro_skip_git_prompt && set $_hydro_git && return
@@ -124,7 +125,7 @@ function __hydro_prompt_git
 end
 
 function __hydro_prompt_venv
-    # Async prompt update: spawns background fish to avoid blocking prompt
+    hydro_log "[__hydro_prompt_git] prompt venv"
     command kill $_hydro_venv_last_pid 2>/dev/null
     fish --private --command "
         set --local current_dir \$PWD
@@ -180,16 +181,14 @@ function _hydro_find_venv --description "Find nearest .venv directory from curre
     end
 end
 
-function _hydro_auto_env --on-variable PWD --description "Auto-activate/deactivate .venv on cd"
-    hydro_log "[_hydro_auto_env] PWD changed: $PWD"
+function __hydro_autoenv
     set --local venv_path (_hydro_find_venv 2>/dev/null)
-    hydro_log "[_hydro_auto_env] found $venv_path"
     if test -z "$venv_path"
-        hydro_log "[_hydro_auto_env] No .venv found, try deactivate"
+        hydro_log "[__hydro_autoenv] No .venv found, try deactivate"
         functions --query deactivate && deactivate 2>/dev/null
         return
     end
-    hydro_log "[_hydro_auto_env] Activating venv: $venv_path"
+    hydro_log "[__hydro_autoenv] Activating venv: $venv_path"
     source "$venv_path/bin/activate.fish"
 end
 
@@ -198,6 +197,7 @@ function _hydro_prompt --on-event fish_prompt
     set --query _hydro_status || set --global _hydro_status "$_hydro_newline$_hydro_color_prompt$hydro_symbol_prompt"
     set --query _hydro_pwd || _hydro_pwd
 
+    __hydro_autoenv
     __hydro_prompt_git
     __hydro_prompt_venv
 end
