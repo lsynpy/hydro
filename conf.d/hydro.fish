@@ -5,7 +5,7 @@ function hydro_log --description "Simple logging function with debug level contr
     set --query hydro_log_level || set --global hydro_log_level "info"
 
     if test "$hydro_log_level" = "debug"
-        echo $argv
+        echo $argv >&2
     end
 end
 
@@ -16,16 +16,16 @@ set --query hydro_color_error || set --global hydro_color_error $fish_color_erro
 set --query hydro_color_prompt || set --global hydro_color_prompt $fish_color_normal
 set --query hydro_color_duration || set --global hydro_color_duration $fish_color_normal
 set --query hydro_color_start || set --global hydro_color_start $fish_color_normal
-set --query hydro_color_pyenv || set --global hydro_color_pyenv $fish_color_normal
+set --query hydro_color_venv || set --global hydro_color_venv $fish_color_normal
 
 set --global _hydro_git _hydro_git_$fish_pid
-set --global _hydro_pyenv _hydro_pyenv_$fish_pid
+set --global _hydro_venv _hydro_venv_$fish_pid
 
 function $_hydro_git --on-variable $_hydro_git
     commandline --function repaint
 end
 
-function $_hydro_pyenv --on-variable $_hydro_pyenv
+function $_hydro_venv --on-variable $_hydro_venv
     commandline --function repaint
 end
 
@@ -123,53 +123,83 @@ function __hydro_prompt_git
     set --global _hydro_last_pid $last_pid
 end
 
-function __hydro_prompt_pyenv
-    # Async pyenv version detection
-    command kill $_hydro_pyenv_last_pid 2>/dev/null
+function __hydro_prompt_venv
+    # Async prompt update: spawns background fish to avoid blocking prompt
+    command kill $_hydro_venv_last_pid 2>/dev/null
     fish --private --command "
-        set pyenv_version (command pyenv version --bare 2>/dev/null)
-        if test -n \"\$pyenv_version\" && test \"\$pyenv_version\" != \"system\"
-            set prefix (command pyenv prefix \$pyenv_version 2>/dev/null)
-            set python_version (string split ' ' --field 2 -- (\$prefix/bin/python --version 2>/dev/null))
-            set --universal $_hydro_pyenv \"(🐍 - \$pyenv_version - \$python_version)\"
+        set --local current_dir \$PWD
+        set --local home_dir \$HOME
+        set --local venv_path
+
+        # Find nearest .venv from CWD upward
+        while true
+            if test -d \"\$current_dir/.venv\"
+                set venv_path \"\$current_dir/.venv\"
+                break
+            end
+            if test \"\$current_dir\" = \"\$home_dir\" -o \"\$current_dir\" = \"/\"
+                break
+            end
+            set current_dir (dirname \"\$current_dir\")
+        end
+
+        if test -n \"\$venv_path\"
+            set --local venv_name
+            set --local version_info
+            set --local pyvenv_cfg \"\$venv_path/pyvenv.cfg\"
+
+            if test -f \"\$pyvenv_cfg\"
+                set venv_name (grep -o \"^prompt *= *.*\" \"\$pyvenv_cfg\" 2>/dev/null | cut -d= -f2 | string trim)
+                set version_info (grep -o \"^version_info *= *.*\" \"\$pyvenv_cfg\" 2>/dev/null | cut -d= -f2 | string trim)
+            end
+            test -z \"\$venv_name\" && set venv_name (basename \"\$venv_path\")
+
+            set --universal $_hydro_venv \"(🐍 - \$venv_name - \$version_info)\"
         else
-            set --universal $_hydro_pyenv \"\"
+            set --universal $_hydro_venv \"(🐍 - System)\"
         end
     " &
-    set --global _hydro_pyenv_last_pid $last_pid
+    set --global _hydro_venv_last_pid $last_pid
 end
 
-function _hydro_activate_venv --on-variable PWD --description "Auto-activate virtual environment"
-    # Skip if already in a virtual environment
-    if set --query VIRTUAL_ENV
-        return
-    end
+function _hydro_find_venv --description "Find nearest .venv directory from current dir up to root"
+    hydro_log "[_hydro_find_venv] Searching for .venv from: $PWD"
+    # Discovery strategy: bottom-up from CWD to home, stops at first .venv found
+    set --local current_dir $PWD
+    set --local home_dir $HOME
 
-    # Check for .venv in current directory
-    if test -f .venv/bin/activate.fish
-        source .venv/bin/activate.fish
-        return
+    while true
+        if test -d "$current_dir/.venv"
+            echo "$current_dir/.venv"
+            return 0
+        end
+        if test "$current_dir" = "$home_dir" -o "$current_dir" = "/"
+            return 1
+        end
+        set current_dir (dirname "$current_dir")
     end
+end
 
-    # Check for venv in current directory
-    if test -f venv/bin/activate.fish
-        source venv/bin/activate.fish
+function _hydro_auto_env --on-variable PWD --description "Auto-activate/deactivate .venv on cd"
+    hydro_log "[_hydro_auto_env] PWD changed: $PWD"
+    set --local venv_path (_hydro_find_venv 2>/dev/null)
+    hydro_log "[_hydro_auto_env] found $venv_path"
+    if test -z "$venv_path"
+        hydro_log "[_hydro_auto_env] No .venv found, try deactivate"
+        functions --query deactivate && deactivate 2>/dev/null
         return
     end
-
-    # Check for uv-style .venv with activate script
-    if test -f .venv/bin/activate
-        source .venv/bin/activate
-        return
-    end
+    hydro_log "[_hydro_auto_env] Activating venv: $venv_path"
+    source "$venv_path/bin/activate.fish"
 end
 
 function _hydro_prompt --on-event fish_prompt
+    hydro_log "[_hydro_prompt] Rendering prompt"
     set --query _hydro_status || set --global _hydro_status "$_hydro_newline$_hydro_color_prompt$hydro_symbol_prompt"
     set --query _hydro_pwd || _hydro_pwd
 
     __hydro_prompt_git
-    __hydro_prompt_pyenv
+    __hydro_prompt_venv
 end
 
 function _hydro_fish_exit --on-event fish_exit
@@ -185,7 +215,7 @@ end
 
 set --global hydro_color_normal (set_color normal)
 
-for color in hydro_color_{pwd,git,error,prompt,duration,start,pyenv}
+for color in hydro_color_{pwd,git,error,prompt,duration,start,venv}
     function $color --on-variable $color --inherit-variable color
         set --query $color && set --global _$color (set_color $$color)
     end && $color
