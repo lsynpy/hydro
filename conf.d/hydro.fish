@@ -209,6 +209,31 @@ function __hydro_prompt_pyenv
     set --global _hydro_pyenv_last_pid $last_pid
 end
 
+function _hydro_activate_venv --on-variable PWD --description "Auto-activate virtual environment"
+    # Skip if already in a virtual environment
+    if set --query VIRTUAL_ENV
+        return
+    end
+
+    # Check for .venv in current directory
+    if test -f .venv/bin/activate.fish
+        source .venv/bin/activate.fish
+        return
+    end
+
+    # Check for venv in current directory
+    if test -f venv/bin/activate.fish
+        source venv/bin/activate.fish
+        return
+    end
+
+    # Check for uv-style .venv with activate script
+    if test -f .venv/bin/activate
+        source .venv/bin/activate
+        return
+    end
+end
+
 function _hydro_prompt --on-event fish_prompt
     set --query _hydro_status || set --global _hydro_status "$_hydro_newline$_hydro_color_prompt$hydro_symbol_prompt"
     set --query _hydro_pwd || _hydro_pwd
